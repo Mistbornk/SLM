@@ -183,30 +183,32 @@ void SLMSeg<TFloat>::transemisi_HSLM(
     for (int i = 0; i < K; ++i)
         G[i] = gvect[i] - norm;
 
-    // Step 3: transition matrix P [K][K][NCov]
+    // Step 3: transition matrix P [NCov][K][K] → flattened to [K * NCov][K]
     for (int cov = 0; cov < NCov; ++cov) {
         for (int i = 0; i < K; ++i) {
             for (int j = 0; j < K; ++j) {
+                int row = cov * K + i;
                 if (i == j)
-                    P[i][j + cov * K] = elnsum(std::log(1 - etavec[cov]), std::log(etavec[cov]) + G[j]);
+                    P[row][j] = elnsum(std::log(1 - etavec[cov]), std::log(etavec[cov]) + G[j]);
                 else
-                    P[i][j + cov * K] = std::log(etavec[cov]) + G[j];
+                    P[row][j] = std::log(etavec[cov]) + G[j];
             }
         }
     }
 
-    // Step 4: emission log-likelihood [K x T]
-    for (int k = 0; k < K; ++k) {
-        for (int t = 0; t < T; ++t) {
+    // Step 4: emission log-likelihood [T][K] 
+    for (int t = 0; t < T; ++t) {
+        for (int k = 0; k < K; ++k) {
             TFloat val = 0.0;
             for (int j = 0; j < NExp; ++j) {
                 TFloat diff = data_matrix[j][t] - muk_[j][k];
                 val += -0.5 * (diff * diff) / (sepsilon_[j] * sepsilon_[j]) -
                     std::log(std::sqrt(2.0 * PI) * sepsilon_[j]);
             }
-            Emission[k][t] = val;
+            Emission[t][k] = val;
         }
-    }  
+    }
+
 }
 
 template<class TFloat>
@@ -273,39 +275,40 @@ void SLMSeg<TFloat>::bioviterbii_HSLM(
     std::vector<unsigned int>& path, 
     std::vector<std::vector<unsigned int>>& psi) 
 {
-    std::vector<std::vector<TFloat>> delta(K, std::vector<TFloat>(T, 0.0));
+    std::vector<std::vector<TFloat>> delta(T, std::vector<TFloat>(K, 0.0));
     
     // initialization
     for (int i = 0; i < K; ++i) {
-        delta[i][0] = etav[i] + Emission[i][0];
-        psi[i][0] = 0;
+        delta[0][i] = etav[i] + Emission[0][i];
+        psi[0][i] = 0;
     }
 
     // recursion
     for (int t = 1; t < T; ++t) {
         for (int j = 0; j < K; ++j) {
-            TFloat nummax = delta[0][t - 1] + P[0][j + K * (t - 1)]; // P[0][j][t]
+            int offset = (t - 1) * K; // offset + i, i=0 
+            TFloat nummax = delta[t - 1][0] + P[offset][j]; // P[0][j][t]
             unsigned int ind = 0;
 
             for (int i = 1; i < K; ++i) {
-                TFloat score = delta[i][t - 1] + P[i][j + K * (t - 1)]; // P[i][j][t-1]
+                TFloat score = delta[t - 1][i] + P[offset + i][j];// P[i][j][t-1]
                 if (score > nummax) {
                     nummax = score;
                     ind = i;
                 }
             }
 
-            delta[j][t] = nummax + Emission[j][t];
-            psi[j][t] = ind;
+            delta[t][j] = nummax + Emission[t][j];
+            psi[t][j] = ind;
         }
     }
 
     // termination
-    TFloat maxval = delta[0][T - 1];
+    TFloat maxval = delta[T - 1][0];
     unsigned int ind = 0;
     for (int i = 1; i < K; ++i) {
-        if (delta[i][T - 1] > maxval) {
-            maxval = delta[i][T - 1];
+        if (delta[T - 1][i] > maxval) {
+            maxval = delta[T - 1][i];
             ind = i;
         }
     }
@@ -313,7 +316,7 @@ void SLMSeg<TFloat>::bioviterbii_HSLM(
     // traceback
     path[T - 1] = ind;
     for (int t = static_cast<int>(T) - 2; t >= 0; --t) {
-        path[t] = psi[path[t + 1]][t + 1];
+        path[t] = psi[t + 1][path[t + 1]];
     }  
 }
 
@@ -489,15 +492,15 @@ void SLMSeg<TFloat>::joint_seg_in()
 
     //initialize matrix
     std::vector<TFloat> G(K0, 0.0);
-    std::vector<std::vector<TFloat>> P(K0, std::vector<TFloat>(K0 * NCov, 0.0));
-    std::vector<std::vector<TFloat>> Emission(K0, std::vector<TFloat>(T, 0.0));
+    std::vector<std::vector<TFloat>> P(K0 * NCov, std::vector<TFloat>(K0, 0.0));
+    std::vector<std::vector<TFloat>> Emission(T, std::vector<TFloat>(K0, 0.0));
     // do 
     transemisi_HSLM(etavec, NCov, K0, NExp, T, G, P, Emission);
     std::cerr << "-Transemisi Completed \n";
 
     // initialize matrix
     std::vector<unsigned int> path(T, 0);
-    std::vector<std::vector<unsigned int>> psi(K0, std::vector<unsigned int>(T, 0));
+    std::vector<std::vector<unsigned int>> psi(T, std::vector<unsigned int>(K0, 0));
     // do 
     bioviterbii_HSLM(etav, P, Emission, T, K0, path, psi);
     std::cerr << "-bioviterbii Completed \n";

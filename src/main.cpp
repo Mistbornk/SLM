@@ -9,7 +9,7 @@ int main(int argc, char *argv[])
     string file = "/Users/mistborn/Desktop/VScode/C++/SLM/testdata";
     string chr = "1";
     segtest.load_signal_file(file, chr);
-    segtest.SLM();
+    segtest.HSLM();
 
     std::vector<std::vector<double>> data_bulk = segtest.data_seg();
     std::vector<double> data_seg = data_bulk[0];
@@ -45,7 +45,7 @@ int main(int argc, char *argv[])
     file = "/Users/mistborn/Desktop/VScode/C++/SLM/testdata";
     chr = "2";
     segtest2.load_signal_file(file, chr);
-    segtest2.SLM();
+    segtest2.HSLM();
 
     data_bulk = segtest2.data_seg();
     data_seg = data_bulk[0];
