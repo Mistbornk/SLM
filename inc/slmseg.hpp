@@ -93,7 +93,7 @@ private:
     std::vector<unsigned int> total_pred_break_;
     std::vector<unsigned int> total_pred_break_filtered_;
     std::vector<std::vector<TFloat>> muk_;
-    std::vector<std::vector<TFloat>> data_seg_;	
+    std::vector<std::vector<TFloat>> data_seg_; 
 };
 
 template<class TFloat>
@@ -251,16 +251,16 @@ void SLMSeg<TFloat>::transemisi_SLM(
         }
     }
 
-    // Step 4: Emission likelihoods (K x T)
-    for (int k = 0; k < K; ++k) {
-        for (int t = 0; t < T; ++t) {
+    // Step 4: emission log-likelihood [T][K] 
+    for (int t = 0; t < T; ++t) {
+        for (int k = 0; k < K; ++k) {
             TFloat val = 0.0;
             for (int j = 0; j < NExp; ++j) {
                 TFloat diff = data_matrix[j][t] - muk_[j][k];
                 val += -0.5 * (diff * diff) / (sepsilon_[j] * sepsilon_[j]) -
-                       std::log(std::sqrt(2.0 * PI) * sepsilon_[j]);
+                    std::log(std::sqrt(2.0 * PI) * sepsilon_[j]);
             }
-            Emission[k][t] = val;
+            Emission[t][k] = val;
         }
     }
 }
@@ -330,48 +330,48 @@ void SLMSeg<TFloat>::bioviterbii_SLM(
     std::vector<unsigned int>& path, 
     std::vector<std::vector<unsigned int>>& psi) 
 {
-    std::vector<std::vector<TFloat>> delta(K, std::vector<TFloat>(T, 0.0));
-
-    // Initialization
+    std::vector<std::vector<TFloat>> delta(T, std::vector<TFloat>(K, 0.0));
+    
+    // initialization
     for (int i = 0; i < K; ++i) {
-        delta[i][0] = etav[i] + Emission[i][0];
-        psi[i][0] = 0;
+        delta[0][i] = etav[i] + Emission[0][i];
+        psi[0][i] = 0;
     }
 
     // Recursion
     for (int t = 1; t < T; ++t) {
         for (int j = 0; j < K; ++j) {
-            TFloat max_score = delta[0][t - 1] + P[0][j];
-            unsigned int max_index = 0;
+            TFloat nummax = delta[t - 1][0] + P[0][j];
+            unsigned int ind = 0;
 
             for (int i = 1; i < K; ++i) {
-                TFloat score = delta[i][t - 1] + P[i][j];
-                if (score > max_score) {
-                    max_score = score;
-                    max_index = i;
+                TFloat score = delta[t - 1][i] + P[i][j];
+                if (score > nummax) {
+                    nummax = score;
+                    ind = i;
                 }
             }
 
-            delta[j][t] = max_score + Emission[j][t];
-            psi[j][t] = max_index;
+            delta[t][j] = nummax + Emission[t][j];
+            psi[t][j] = ind;
         }
     }
 
     // Termination
-    TFloat maxval = delta[0][T - 1];
-    unsigned int maxind = 0;
+    TFloat maxval = delta[T - 1][0];
+    unsigned int ind = 0;
     for (int i = 1; i < K; ++i) {
-        if (delta[i][T - 1] > maxval) {
-            maxval = delta[i][T - 1];
-            maxind = i;
+        if (delta[T - 1][i] > maxval) {
+            maxval = delta[T - 1][i];
+            ind = i;
         }
     }
 
-    // Traceback
-    path[T - 1] = maxind;
-    for (int t = T - 2; t >= 0; --t) {
-        path[t] = psi[path[t + 1]][t + 1];
-    }
+    // traceback
+    path[T - 1] = ind;
+    for (int t = static_cast<int>(T) - 2; t >= 0; --t) {
+        path[t] = psi[t + 1][path[t + 1]];
+    }  
 }
 
 template<class TFloat>
@@ -447,7 +447,7 @@ void SLMSeg<TFloat>::joint_seg()
     // Step 1: 建立轉移矩陣與機率表
     std::vector<TFloat> G(K0, 0.0);                            // GVECT
     std::vector<std::vector<TFloat>> P(K0, std::vector<TFloat>(K0, 0.0)); // transition matrix
-    std::vector<std::vector<TFloat>> Emission(K0, std::vector<TFloat>(T, 0.0)); // emission log likelihood
+    std::vector<std::vector<TFloat>> Emission(T, std::vector<TFloat>(K0, 0.0)); // emission log likelihood
 
     // Step 2: 執行 transemisi（同質版本）
     transemisi_SLM(eta_, K0, NExp, T, G, P, Emission);
@@ -455,7 +455,7 @@ void SLMSeg<TFloat>::joint_seg()
 
     // Step 3: Viterbi 路徑與 psi 表
     std::vector<unsigned int> path(T, 0);
-    std::vector<std::vector<unsigned int>> psi(K0, std::vector<unsigned int>(T, 0));
+    std::vector<std::vector<unsigned int>> psi(T, std::vector<unsigned int>(K0, 0));
     bioviterbii_SLM(etav, P, Emission, T, K0, path, psi);
     std::cerr << "-bioviterbi Completed\n";
 
