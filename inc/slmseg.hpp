@@ -103,11 +103,11 @@ std::vector<unsigned int> SLMSeg<TFloat>::get_breaks(std::vector<unsigned int>& 
     if (path.empty())
         return breakpoints;
 
-    int T = path.size();
+    size_t T = path.size();
     unsigned int last_state = path[0];
     breakpoints.push_back(0);  // 起點一定是斷點
 
-    for (int t = 1; t < T; ++t) {
+    for (size_t t = 1; t < T; ++t) {
         if (path[t] != last_state) {
             breakpoints.push_back(t);  // 狀態切換時記錄斷點
             last_state = path[t];
@@ -380,11 +380,11 @@ void SLMSeg<TFloat>::param_est_seq()
     // smu_: Between-segment variation
     // sepsilon_: Within-segment noise
     data_matrix.emplace_back(signal_data_); // log2R
-    int Nexp = data_matrix.size();
+    size_t Nexp = data_matrix.size();
 
     std::vector<TFloat> sigmax(Nexp);
 
-    for (int i = 0; i < Nexp; ++i) {
+    for (size_t i = 0; i < Nexp; ++i) {
         // for single sample
         std::vector<TFloat>& row = data_matrix[i]; 
         std::vector<TFloat> centered(row.size());
@@ -393,7 +393,7 @@ void SLMSeg<TFloat>::param_est_seq()
         std::nth_element(tmp.begin(), tmp.begin() + tmp.size() / 2, tmp.end()); // sort nth element
         TFloat median = tmp[tmp.size() / 2]; 
         // caculate absolute deviation from the median
-        for (int j = 0; j < row.size(); ++j) {
+        for (size_t j = 0; j < row.size(); ++j) {
             centered[j] = std::abs(row[j] - median);
         }
         // caculate mad (median absolute deviation)
@@ -471,7 +471,7 @@ void SLMSeg<TFloat>::joint_seg_in()
     // CovPosNorm = CovPos / stepeta(dnorm)
     // Pr = etavec = eta + (1 - eta) * exp(log(eta) / CovPosNorm) 
     std::vector<TFloat> etavec(pos_data_.size() - 1);
-    for (int i = 0; i < etavec.size(); ++i) {
+    for (size_t i = 0; i < etavec.size(); ++i) {
        TFloat cov_pos = static_cast<TFloat>(pos_data_[i + 1]) - static_cast<TFloat>(pos_data_[i]);
        TFloat cov_pos_norm = cov_pos / stepeta_;
        etavec[i] = eta_ + (1.0 - eta_) * std::exp(std::log(eta_) / cov_pos_norm);
@@ -516,8 +516,8 @@ void SLMSeg<TFloat>::joint_seg_in()
 template<class TFloat>
 void SLMSeg<TFloat>::filter_seg() {
     total_pred_break_filtered_.clear(); 
-    int n = total_pred_break_.size();
-    if (n == 0) return;
+    size_t n = total_pred_break_.size();
+    if (n <= 0) return;
 
     std::vector<unsigned int> indF;
     for (size_t i = 0; i < n - 1; ++i) {
@@ -546,12 +546,12 @@ void SLMSeg<TFloat>::filter_seg() {
 template<class TFloat>
 void SLMSeg<TFloat>::seg_results()
 {
-    int NExp = data_matrix.size();
-    int T = data_matrix[0].size();
+    size_t NExp = data_matrix.size();
+    size_t T = data_matrix[0].size();
 
-    for (int j = 0; j < NExp; ++j) {
+    for (size_t j = 0; j < NExp; ++j) {
         std::vector<TFloat> s(T, 0.0);
-        for (int i = 0; i + 1 < total_pred_break_filtered_.size(); ++i) {
+        for (size_t i = 0; i + 1 < total_pred_break_filtered_.size(); ++i) {
             unsigned int start = total_pred_break_filtered_[i];
             unsigned int end = total_pred_break_filtered_[i + 1];
 
@@ -559,7 +559,7 @@ void SLMSeg<TFloat>::seg_results()
             std::nth_element(segment.begin(), segment.begin() + segment.size() / 2, segment.end());
             TFloat median = segment[segment.size() / 2];
 
-            for (int t = start; t < end; ++t)
+            for (size_t t = start; t < end; ++t)
                 s[t] = median;
         }
         data_seg_.push_back(std::move(s));
