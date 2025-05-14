@@ -28,18 +28,18 @@ public:
             return b + std::log1p(std::exp(a - b));
     }
 
-    void transemisi_HSLM(const std::vector<TFloat>& etavec, int NCov, int K, int NExp, int T,
+    void transemisi_HSLM(const std::vector<TFloat>& etavec, size_t NCov, size_t K, size_t NExp, size_t T,
                     std::vector<TFloat>& G, std::vector<std::vector<TFloat>>& P, std::vector<std::vector<TFloat>>& Emission);
 
-    void transemisi_SLM(const TFloat eta, int K, int NExp, int T,
+    void transemisi_SLM(const TFloat eta, size_t K, size_t NExp, size_t T,
                     std::vector<TFloat>& G, std::vector<std::vector<TFloat>>& P, std::vector<std::vector<TFloat>>& Emission);                  
                     
     void bioviterbii_HSLM(const std::vector<TFloat>& etav, const std::vector<std::vector<TFloat>>& P, 
-                    const std::vector<std::vector<TFloat>>& Emission, int  T, int  K, std::vector<unsigned int>& path, 
+                    const std::vector<std::vector<TFloat>>& Emission, size_t  T, size_t  K, std::vector<unsigned int>& path, 
                     std::vector<std::vector<unsigned int>>& psi);
     
     void bioviterbii_SLM(const std::vector<TFloat>& etav, const std::vector<std::vector<TFloat>>& P, 
-                    const std::vector<std::vector<TFloat>>& Emission, int  T, int  K, std::vector<unsigned int>& path, 
+                    const std::vector<std::vector<TFloat>>& Emission, size_t  T, size_t  K, std::vector<unsigned int>& path, 
                     std::vector<std::vector<unsigned int>>& psi); 
     
     void param_est_seq();
@@ -156,10 +156,10 @@ bool SLMSeg<TFloat>::load_signal_file(const std::string& file_name, const std::s
 template<class TFloat>
 void SLMSeg<TFloat>::transemisi_HSLM(
     const std::vector<TFloat>& etavec,
-    int NCov,
-    int K,
-    int NExp,
-    int T,
+    size_t NCov,
+    size_t K,
+    size_t NExp,
+    size_t T,
     std::vector<TFloat>& G, 
     std::vector<std::vector<TFloat>>& P, 
     std::vector<std::vector<TFloat>>& Emission) 
@@ -167,9 +167,9 @@ void SLMSeg<TFloat>::transemisi_HSLM(
     TFloat PI = std::numbers::pi;
     // Step 1: GVECT (a simplify gaussion log-likelihood)
     std::vector<TFloat> gvect(K, 0.0);
-    for (int i = 0; i < K; ++i) {
+    for (size_t i = 0; i < K; ++i) {
         TFloat gsum = 0.0;
-        for (int j = 0; j < NExp; ++j) {
+        for (size_t j = 0; j < NExp; ++j) {
             TFloat diff = muk_[j][i] - mi_[j];
             gsum += - (diff * diff) / (2 * smu_[j] * smu_[j]);
         }
@@ -178,16 +178,16 @@ void SLMSeg<TFloat>::transemisi_HSLM(
 
     // Step 2: normalize GVECT (likelihood) to G (probability)
     TFloat norm = gvect[0];
-    for (int i = 1; i < K; ++i)
+    for (size_t i = 1; i < K; ++i)
         norm = elnsum(norm, gvect[i]);
-    for (int i = 0; i < K; ++i)
+    for (size_t i = 0; i < K; ++i)
         G[i] = gvect[i] - norm;
 
     // Step 3: transition matrix P [NCov][K][K] → flattened to [K * NCov][K]
-    for (int cov = 0; cov < NCov; ++cov) {
-        for (int i = 0; i < K; ++i) {
-            for (int j = 0; j < K; ++j) {
-                int row = cov * K + i;
+    for (size_t cov = 0; cov < NCov; ++cov) {
+        for (size_t i = 0; i < K; ++i) {
+            for (size_t j = 0; j < K; ++j) {
+                size_t row = cov * K + i;
                 if (i == j)
                     P[row][j] = elnsum(std::log(1 - etavec[cov]), std::log(etavec[cov]) + G[j]);
                 else
@@ -197,10 +197,10 @@ void SLMSeg<TFloat>::transemisi_HSLM(
     }
 
     // Step 4: emission log-likelihood [T][K] 
-    for (int t = 0; t < T; ++t) {
-        for (int k = 0; k < K; ++k) {
+    for (size_t t = 0; t < T; ++t) {
+        for (size_t k = 0; k < K; ++k) {
             TFloat val = 0.0;
-            for (int j = 0; j < NExp; ++j) {
+            for (size_t j = 0; j < NExp; ++j) {
                 TFloat diff = data_matrix[j][t] - muk_[j][k];
                 val += -0.5 * (diff * diff) / (sepsilon_[j] * sepsilon_[j]) -
                     std::log(std::sqrt(2.0 * PI) * sepsilon_[j]);
@@ -214,9 +214,9 @@ void SLMSeg<TFloat>::transemisi_HSLM(
 template<class TFloat>
 void SLMSeg<TFloat>::transemisi_SLM(
     const TFloat eta,
-    int K,
-    int NExp,
-    int T,
+    size_t K,
+    size_t NExp,
+    size_t T,
     std::vector<TFloat>& G, 
     std::vector<std::vector<TFloat>>& P, 
     std::vector<std::vector<TFloat>>& Emission) 
@@ -225,9 +225,9 @@ void SLMSeg<TFloat>::transemisi_SLM(
 
     // Step 1: GVECT
     std::vector<TFloat> gvect(K, 0.0);
-    for (int i = 0; i < K; ++i) {
+    for (size_t i = 0; i < K; ++i) {
         TFloat gsum = 0.0;
-        for (int j = 0; j < NExp; ++j) {
+        for (size_t j = 0; j < NExp; ++j) {
             TFloat diff = muk_[j][i] - mi_[j];
             gsum += - (diff * diff) / (2 * smu_[j] * smu_[j]);
         }
@@ -236,14 +236,14 @@ void SLMSeg<TFloat>::transemisi_SLM(
 
     // Step 2: Normalize GVECT to G
     TFloat norm = gvect[0];
-    for (int i = 1; i < K; ++i)
+    for (size_t i = 1; i < K; ++i)
         norm = elnsum(norm, gvect[i]);
-    for (int i = 0; i < K; ++i)
+    for (size_t i = 0; i < K; ++i)
         G[i] = gvect[i] - norm;
 
     // Step 3: Transition matrix P (K x K)
-    for (int i = 0; i < K; ++i) {
-        for (int j = 0; j < K; ++j) {
+    for (size_t i = 0; i < K; ++i) {
+        for (size_t j = 0; j < K; ++j) {
             if (i == j)
                 P[i][j] = elnsum(std::log(1.0 - eta), std::log(eta) + G[j]);
             else
@@ -252,10 +252,10 @@ void SLMSeg<TFloat>::transemisi_SLM(
     }
 
     // Step 4: emission log-likelihood [T][K] 
-    for (int t = 0; t < T; ++t) {
-        for (int k = 0; k < K; ++k) {
+    for (size_t t = 0; t < T; ++t) {
+        for (size_t k = 0; k < K; ++k) {
             TFloat val = 0.0;
-            for (int j = 0; j < NExp; ++j) {
+            for (size_t j = 0; j < NExp; ++j) {
                 TFloat diff = data_matrix[j][t] - muk_[j][k];
                 val += -0.5 * (diff * diff) / (sepsilon_[j] * sepsilon_[j]) -
                     std::log(std::sqrt(2.0 * PI) * sepsilon_[j]);
@@ -270,27 +270,27 @@ void SLMSeg<TFloat>::bioviterbii_HSLM(
     const std::vector<TFloat>& etav, 
     const std::vector<std::vector<TFloat>>& P, 
     const std::vector<std::vector<TFloat>>& Emission,
-    int T, 
-    int K, 
+    size_t T, 
+    size_t K, 
     std::vector<unsigned int>& path, 
     std::vector<std::vector<unsigned int>>& psi) 
 {
     std::vector<std::vector<TFloat>> delta(T, std::vector<TFloat>(K, 0.0));
     
     // initialization
-    for (int i = 0; i < K; ++i) {
+    for (size_t i = 0; i < K; ++i) {
         delta[0][i] = etav[i] + Emission[0][i];
         psi[0][i] = 0;
     }
 
     // recursion
-    for (int t = 1; t < T; ++t) {
-        for (int j = 0; j < K; ++j) {
-            int offset = (t - 1) * K; // offset + i, i=0 
+    for (size_t t = 1; t < T; ++t) {
+        for (size_t j = 0; j < K; ++j) {
+            size_t offset = (t - 1) * K; // offset + i, i=0 
             TFloat nummax = delta[t - 1][0] + P[offset][j]; // P[0][j][t]
             unsigned int ind = 0;
 
-            for (int i = 1; i < K; ++i) {
+            for (size_t i = 1; i < K; ++i) {
                 TFloat score = delta[t - 1][i] + P[offset + i][j];// P[i][j][t-1]
                 if (score > nummax) {
                     nummax = score;
@@ -306,7 +306,7 @@ void SLMSeg<TFloat>::bioviterbii_HSLM(
     // termination
     TFloat maxval = delta[T - 1][0];
     unsigned int ind = 0;
-    for (int i = 1; i < K; ++i) {
+    for (size_t i = 1; i < K; ++i) {
         if (delta[T - 1][i] > maxval) {
             maxval = delta[T - 1][i];
             ind = i;
@@ -325,26 +325,26 @@ void SLMSeg<TFloat>::bioviterbii_SLM(
     const std::vector<TFloat>& etav, 
     const std::vector<std::vector<TFloat>>& P, 
     const std::vector<std::vector<TFloat>>& Emission,
-    int T, 
-    int K, 
+    size_t T, 
+    size_t K, 
     std::vector<unsigned int>& path, 
     std::vector<std::vector<unsigned int>>& psi) 
 {
     std::vector<std::vector<TFloat>> delta(T, std::vector<TFloat>(K, 0.0));
     
     // initialization
-    for (int i = 0; i < K; ++i) {
+    for (size_t i = 0; i < K; ++i) {
         delta[0][i] = etav[i] + Emission[0][i];
         psi[0][i] = 0;
     }
 
     // Recursion
-    for (int t = 1; t < T; ++t) {
-        for (int j = 0; j < K; ++j) {
+    for (size_t t = 1; t < T; ++t) {
+        for (size_t j = 0; j < K; ++j) {
             TFloat nummax = delta[t - 1][0] + P[0][j];
             unsigned int ind = 0;
 
-            for (int i = 1; i < K; ++i) {
+            for (size_t i = 1; i < K; ++i) {
                 TFloat score = delta[t - 1][i] + P[i][j];
                 if (score > nummax) {
                     nummax = score;
@@ -360,7 +360,7 @@ void SLMSeg<TFloat>::bioviterbii_SLM(
     // Termination
     TFloat maxval = delta[T - 1][0];
     unsigned int ind = 0;
-    for (int i = 1; i < K; ++i) {
+    for (size_t i = 1; i < K; ++i) {
         if (delta[T - 1][i] > maxval) {
             maxval = delta[T - 1][i];
             ind = i;
@@ -415,7 +415,7 @@ void SLMSeg<TFloat>::param_est_seq()
 template<class TFloat>
 void SLMSeg<TFloat>::muk_est() 
 {
-    int Nexp = data_matrix.size();
+    size_t Nexp = data_matrix.size();
 
     if (Nexp == 1) {
         std::vector<TFloat> temp;
@@ -436,12 +436,12 @@ template<class TFloat>
 void SLMSeg<TFloat>::joint_seg()
 {
     // 檢查資料
-    int NExp = data_matrix.size();
+    size_t NExp = data_matrix.size();
     if (NExp == 0 || data_matrix[0].empty())
         throw std::invalid_argument("Data matrix is empty.");
 
-    int T = data_matrix[0].size();           // 序列長度
-    int K0 = muk_[0].size();                 // 狀態數（μ的組合數）
+    size_t T = data_matrix[0].size();           // 序列長度
+    size_t K0 = muk_[0].size();                 // 狀態數（μ的組合數）
     std::vector<TFloat> etav(K0, std::log(1.0 / K0));  // etav = log(1/K0)
 
     // Step 1: 建立轉移矩陣與機率表
@@ -477,16 +477,16 @@ void SLMSeg<TFloat>::joint_seg_in()
        etavec[i] = eta_ + (1.0 - eta_) * std::exp(std::log(eta_) / cov_pos_norm);
     }
     // 樣本數 NExp = sample size
-    int NExp = data_matrix.size();
+    size_t NExp = data_matrix.size();
     if (NExp == 0 || data_matrix[0].empty())
     throw std::invalid_argument("Data matrix is empty.");
 
     // bins pair NCov = length(etavec)
-    int NCov = etavec.size();
+    size_t NCov = etavec.size();
     // 狀態數（候選的 mean 組合 μ_k）K0 = ncol(muk)
-    int K0 = muk_[0].size();
+    size_t K0 = muk_[0].size();
     // bins number
-    int T = data_matrix[0].size();
+    size_t T = data_matrix[0].size();
     // etav = log(rep(1, K0) * (1/K0))
     std::vector<TFloat> etav(K0, std::log(1.0 / K0));
 
