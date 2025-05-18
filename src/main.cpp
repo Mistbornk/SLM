@@ -1,80 +1,31 @@
 #include "slmseg.hpp"
+#include "bam2count.hpp"
+#include "bam_utils.hpp"
+#include <htslib/sam.h>
 #include <iomanip>
+#include <iostream>
+#include <string>
+#include <thread>
+#include <vector>
+#include <mutex>
 
-using namespace std;
+int main() {
+    std::string file_path = "/mnt/users/philip/workshop/_share/20250217_dragen/hs37d5_graph/HG002.novaseq.pcr-free.30x/HG002.novaseq.pcr-free.30x.bam";  // ← 替換成你的路徑
+    std::string region = "1:10000-11000";                   // 測試區間
+    
+    BAM_INFO* bam_info = new BAM_INFO(file_path);
 
-int main(int argc, char *argv[])
-{
-    SLMSeg<double> segtest;
-    string file = "/Users/mistborn/Desktop/VScode/C++/SLM/testdata";
-    string chr = "1";
-    segtest.load_signal_file(file, chr);
-    segtest.SLM();
+    auto chromosome_info = get_chromosomes_and_lengths(bam_info->header);
 
-    std::vector<std::vector<double>> data_bulk = segtest.data_seg();
-    std::vector<double> data_seg = data_bulk[0];
-    std::vector<unsigned int> pos_data = segtest.pos_data();
-    
-    std::ofstream segout("chr1_segment.txt");
-    std::string chrom = "chr1";
-    
-    double current_value = data_seg[0];
-    int start_index = 0;
-    
-    for (size_t i = 1; i < data_seg.size(); ++i) {
-        if (data_seg[i] != current_value) {
-            segout << chrom << "\t"
-                   << pos_data[start_index] << "\t"
-                   << (pos_data[i - 1]) << "\t"
-                   << std::fixed << std::setprecision(6) << current_value << "\n";
-            current_value = data_seg[i];
-            start_index = i;
-        }
+    for (const auto& [chr, len] : chromosome_info) {
+        std::string region = chr + ":1-" + std::to_string(len);
+        int count = count_reads_in_interval(bam_info, region);
+        if (count >= 0)
+            std::cout << chr << "\tlength=" << len << "\treads=" << count << "\n";
+        else
+            std::cerr << "讀取失敗\n";
     }
-    segout << chrom << "\t"
-           << pos_data[start_index] << "\t"
-           << (pos_data.back()) << "\t"
-           << std::fixed << std::setprecision(6) << current_value << "\n";
-    
-    segout.close();
-    
-    std::cout << "Save to csv successfully.\n";
 
-
-    SLMSeg<double> segtest2;
-    file = "/Users/mistborn/Desktop/VScode/C++/SLM/testdata";
-    chr = "2";
-    segtest2.load_signal_file(file, chr);
-    segtest2.SLM();
-
-    data_bulk = segtest2.data_seg();
-    data_seg = data_bulk[0];
-    pos_data = segtest2.pos_data();
-    
-    std::ofstream segout2("chr2_segment.txt");
-    chrom = "chr2";
-    
-    current_value = data_seg[0];
-    start_index = 0;
-    
-    for (size_t i = 1; i < data_seg.size(); ++i) {
-        if (data_seg[i] != current_value) {
-            segout2 << chrom << "\t"
-                   << pos_data[start_index] << "\t"
-                   << (pos_data[i - 1]) << "\t"
-                   << std::fixed << std::setprecision(6) << current_value << "\n";
-            current_value = data_seg[i];
-            start_index = i;
-        }
-    }
-    segout2 << chrom << "\t"
-           << pos_data[start_index] << "\t"
-           << (pos_data.back()) << "\t"
-           << std::fixed << std::setprecision(6) << current_value << "\n";
-    
-    segout2.close();
-    
-    std::cout << "Save to csv successfully.\n";
-
+    delete(bam_info);
     return 0;
 }
