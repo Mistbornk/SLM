@@ -1,5 +1,7 @@
 CXX = g++
-CXXFLAGS = -std=c++20 -Wall -O3 -I./inc -g
+CXXFLAGS = -std=c++20 -Wall -O3 -I./inc -g -march=native
+LDFLAGS = -lhts
+
 SRCDIR = src
 OBJDIR = obj
 BINDIR = bin
@@ -14,14 +16,13 @@ all: $(EXEC)
 
 $(EXEC): $(OBJECTS)
 	@echo "Linking $@..."
-	$(CXX) $(CXXFLAGS) -o $@ $^
+	$(CXX) $(CXXFLAGS) -o $@ $^ $(LDFLAGS)
 
 $(OBJDIR)/%.o: $(SRCDIR)/%.cpp
 	@mkdir -p $(OBJDIR)
 	@echo "Compiling $<..."
 	$(CXX) $(CXXFLAGS) -MMD -c $< -o $@
 
-# 這行會自動 include 所有 .d 檔案，讓 header 修改也能觸發重編
 -include $(DEPS)
 
 clean:

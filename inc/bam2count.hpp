@@ -3,7 +3,10 @@
 #include <string>
 #include <htslib/sam.h>
 #include "bam_utils.hpp"
+#include <future>
+#include <thread>
+#include <mutex>
 
-int count_reads_in_interval(BAM_INFO* bam_info, const std::string& region_str);
+void count_reads_in_bam(const std::string& file_path, int num_threads);
 
 #endif
