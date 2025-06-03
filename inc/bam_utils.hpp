@@ -1,17 +1,15 @@
-#ifndef BAM_UTILS_H
-#define BAM_UTILS_H
+#pragma once
 #include <htslib/sam.h>
 #include <string>
 #include <vector>
 #include <utility>  // for std::pair
 
-class BAM_INFO {
-public:
+struct BAM_INFO {
 	BAM_INFO (const std::string& bam_path) : file_path(bam_path) {
 		bam_file_init();
 	}
 
-	~BAM_INFO() {
+	~BAM_INFO() { 
 		bam_file_close();
 	}
 
@@ -25,5 +23,3 @@ public:
 };
 
 std::vector<std::pair<std::string, int>> get_chromosomes_and_lengths(bam_hdr_t* header);
-
-#endif

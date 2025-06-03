@@ -1,5 +1,4 @@
-#ifndef SLMSEG_H_
-#define SLMSEG_H_
+#pragma once
 #include <iostream>
 #include <sstream>
 #include <fstream>
@@ -689,5 +688,3 @@ void SLMSeg<TFloat>::SLM()
     std::cout << "Producing results...\n";
     seg_results();
 }
-
-#endif // SLMSEG_H

@@ -1,0 +1,3 @@
+[submodule "Biovoltron"]
+	path = Biovoltron
+	url = ssh://git@gitlab.centrilliontech.com.tw:10022/GeneASIC/Biovoltron.git

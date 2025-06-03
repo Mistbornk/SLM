@@ -8,11 +8,12 @@
 #include <string>
 #include <thread>
 #include <vector>
-#define Kmer 30
+#define Kmer 35
 
 int main(int argc, char* argv[]) {
     std::string file_path = "/mnt/users/philip/workshop/_share/20250217_dragen/hs37d5_graph/HG002.novaseq.pcr-free.30x/HG002.novaseq.pcr-free.30x.bam";  // ← 替換成你的路徑
     std::string fa_path = "/home/max/SLM/SLM/data/hs37d5.fa";
+    std::string index_path = "/home/max/SLM/SLM/data/";
 
     BAM_INFO bam_info(file_path);
     auto chromosome_info = get_chromosomes_and_lengths(bam_info.header);
@@ -23,7 +24,7 @@ int main(int argc, char* argv[]) {
 
     //count_reads_in_bam(file_path, num_threads);
 
-    count_unique_kmers(fa_path, Kmer, "/home/max/SLM/SLM/data/uniqued_kmer.txt");
+    count_unique_kmers(fa_path, index_path, Kmer, "/home/max/SLM/SLM/data/non_unique.bin");
 
     return 0;
 }
