@@ -1,4 +1,5 @@
 #include "fasta2kmer.hpp"
+#include <omp.h>
 
 std::vector<chr_info> chr_data;
 //std::unordered_map<std::string, unsigned int> chrtoid;
@@ -143,7 +144,7 @@ void count_unique_kmers(const std::string& fasta_path, const std::string& index_
         std::cerr << "Need to construct FM index first ...\n"; 
         make_FMindex(index_path);
     }
-
+    // load
     auto index = FMIndex<>{};
     {
         auto ifs = std::ifstream{index_path + index_name};
@@ -152,14 +153,14 @@ void count_unique_kmers(const std::string& fasta_path, const std::string& index_
 
     std::cout << "Start to Proccess Chromosome\n";
     std::cout << "Kmer size: " << kmer_size << "\n";
-    size_t chr_idx = 0; 
-    size_t chr_end = chr_data[chr_idx].total_len + chr_data[chr_idx].len;
+    //size_t chr_idx = 0; 
+    //size_t chr_end = chr_data[chr_idx].total_len + chr_data[chr_idx].len;
     //std::cout << "start " << chr_data[chr_idx].name << " " << chr_end << "\n";
     //for (auto& info : chr_data) {
     //    std::cout << info.name << ", " << info.total_len << ", " << info.len <<"\n";
     //}
     //std:: cout << concat_iref.size() << "\n";
-
+    #pragma omp parallel for schedule(dynamic, 1000)
     for (size_t j = 0; j <= concat_iref.size() - kmer_size; ++j) {   
         if (non_unique[j]) continue;
 
@@ -171,18 +172,19 @@ void count_unique_kmers(const std::string& fasta_path, const std::string& index_
             auto hits = index.get_offsets(begin, end);
             for (auto& hit : hits) {
                 if (hit < non_unique.size()) {
+                    #pragma omp atomic write
                     non_unique[hit] = 1;
                 }
             }
         }
 
-        if (j >= chr_end) {
-            std::cout << "Processed " << chr_data[chr_idx].name << "\n";
-            ++chr_idx;
-            if (chr_idx < chr_data.size()) {
-                chr_end = chr_data[chr_idx].total_len + chr_data[chr_idx].len;
-            }
-        }
+        //if (j >= chr_end) {
+        //    std::cout << "Processed " << chr_data[chr_idx].name << "\n";
+        //    ++chr_idx;
+        //    if (chr_idx < chr_data.size()) {
+        //        chr_end = chr_data[chr_idx].total_len + chr_data[chr_idx].len;
+        //    }
+        //}
     }
 
     std::cout << "Successfully done. Now output the non unique vector\n";
