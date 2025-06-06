@@ -1,8 +1,10 @@
 #pragma once
+#include <vector>
 #include <biovoltron/algo/align/tailor/index.hpp>
 #include <biovoltron/utility/istring.hpp>
 
 #include "verbose.hpp"
+#include "fasta2kmer.hpp"
 
 #include <htslib/faidx.h>
 #include <algorithm>
@@ -18,17 +20,12 @@
 
 using namespace biovoltron;
 using istring = std::basic_string<ichar>;
-namespace fs = std::filesystem;
-
-struct chr_info {
-	std::string name;
-	size_t len;
-	size_t total_len;
-};
 using KmerResult = std::tuple<std::vector<chr_info>, std::vector<uint8_t>>;
 
-KmerResult count_unique_kmers(const std::string& fasta_path, const std::string& index_path, int kmer_size, const std::string& output_path, int num_threads = 8);
+struct Interval {
+	// [start, end)
+    size_t start;
+    size_t end;
+};
 
-
-
-
+void Binning_with_unique_kmer(KmerResult& kmer_result);
