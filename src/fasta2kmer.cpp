@@ -1,7 +1,9 @@
 #include "fasta2kmer.hpp"
 
-void make_FMindex(const std::string& file_path, const istring& concat_iref) 
-{   
+void make_FMindex(
+    const std::string& file_path, 
+    const istring& concat_iref
+) {   
     verbose_log("  -Making FM index ...");
 
     auto index = FMIndex<>{}; 
@@ -17,8 +19,12 @@ void make_FMindex(const std::string& file_path, const istring& concat_iref)
 }
 
 
-KmerResult count_unique_kmers(const std::string& fasta_path, const std::string& index_path, 
-    int kmer_size, const std::string& output_path, int num_threads
+KmerResult count_unique_kmers(
+    const std::string& fasta_path, 
+    const std::string& index_path, 
+    int kmer_size, 
+    const std::string& output_path, 
+    int num_threads
 ) {
 
     std::vector<chr_info> chr_data;

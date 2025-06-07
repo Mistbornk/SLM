@@ -22,10 +22,10 @@ using namespace biovoltron;
 using istring = std::basic_string<ichar>;
 using KmerResult = std::tuple<std::vector<chr_info>, std::vector<uint8_t>>;
 
-struct Interval {
+struct Intv {
 	// [start, end)
     size_t start;
     size_t end;
 };
 
-void Binning_with_unique_kmer(KmerResult& kmer_result);
+void Binning_with_unique_kmer(const std::string& output_path, KmerResult& kmer_result, size_t kmer_number);

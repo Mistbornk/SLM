@@ -18,7 +18,7 @@ add_subdirectory(Biovoltron)
 #set(CMAKE_CXX_FLAGS_DEBUG "-g -O0")
 
 # Compiler flags
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -O3 -march=native")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -O3 -march=native -fopenmp")
 
 # Include directories
 include_directories(

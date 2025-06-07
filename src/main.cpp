@@ -41,7 +41,7 @@ int main(int argc, char* argv[]) {
 
     auto kmer_result = count_unique_kmers(fa_path, index_path, Kmer, output_path, num_threads);
 
-    Binning_with_unique_kmer(kmer_result);
+    Binning_with_unique_kmer(output_path, kmer_result, 1000);
 
     return 0;
 }
