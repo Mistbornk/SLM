@@ -19,19 +19,16 @@ void make_FMindex(
 }
 
 
-KmerResult count_unique_kmers(
-    const std::string& fasta_path, 
-    const std::string& index_path, 
-    int kmer_size, 
-    const std::string& output_path, 
-    int num_threads
-) {
+KmerResult count_unique_kmers(Options& option) 
+{
+    std::string fasta_path(option.fasta_path);
+    std::string output_path(option.output_path);
+    size_t  kmer_size{option.kmer};
+    size_t  num_threads{option.num_threads};
 
     std::vector<chr_info> chr_data;
     std::vector<uint8_t> non_unique; 
     istring concat_iref;
-    const std::string index_name("index.bin");
-    const std::string bitvector_name("non_unique.bin");
 
 	faidx_t* fai = fai_load(fasta_path.c_str());
 	if (!fai) {
@@ -68,7 +65,7 @@ KmerResult count_unique_kmers(
 
     // read sequence info form fasta
     std::vector<istring> temp_sequences(chr_num);
-    #pragma omp parallel for schedule(dynamic) num_threads(num_threads)
+    #pragma omp parallel for schedule(dynamic, 1) num_threads(num_threads)
     for (int i = 0 ; i < chr_num; ++i) {
 
         std::string& chr_name = chr_data[i].name;
@@ -90,6 +87,7 @@ KmerResult count_unique_kmers(
         }else if (len != chr_len) {
             std::cerr << "Warning: fetched length mismatch for " << chr_name 
               << " (expected " << chr_len << ", got " << len << ")\n";
+            continue;
         }  
 
         istring iseq;
@@ -118,16 +116,16 @@ KmerResult count_unique_kmers(
     }
 
     // make and save FM index
-    if (!fs::exists(index_path + index_name)) {
-       verbose_log("Need to construct FM index first ...");
-        make_FMindex(index_path + index_name, concat_iref);
+    if (!fs::exists(output_path + INDEX_NAME)) {
+       verbose_log("Need to construct FM index at " + output_path + " first ...");
+        make_FMindex(output_path + INDEX_NAME, concat_iref);
     }
 
     // load
     auto index = FMIndex<>{};
     {
         verbose_log("Loading FM index ...");
-        auto ifs = std::ifstream{index_path + index_name};
+        auto ifs = std::ifstream{output_path + INDEX_NAME};
         index.load(ifs);
     }
 
@@ -164,7 +162,7 @@ KmerResult count_unique_kmers(
         }
     }
 
-    verbose_log("Successfully done unique kmer search !");
+    verbose_log("Successfully done unique kmer search.");
 
     return std::make_tuple(chr_data, non_unique);
 }

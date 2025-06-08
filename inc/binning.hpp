@@ -3,7 +3,7 @@
 #include <biovoltron/algo/align/tailor/index.hpp>
 #include <biovoltron/utility/istring.hpp>
 
-#include "verbose.hpp"
+#include "context.hpp"
 #include "fasta2kmer.hpp"
 
 #include <htslib/faidx.h>
@@ -28,4 +28,4 @@ struct Intv {
     size_t end;
 };
 
-void Binning_with_unique_kmer(const std::string& output_path, KmerResult& kmer_result, size_t kmer_number);
+void Binning_with_unique_kmer(Options& option, KmerResult& kmer_result);

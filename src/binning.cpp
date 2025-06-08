@@ -1,5 +1,4 @@
 #include "binning.hpp"
-#include <fstream>
 
 void write_Bedfile_interval(
 	const std::string& output_path,
@@ -8,10 +7,10 @@ void write_Bedfile_interval(
 	std::vector<std::vector<Intv>>& discard_intvs
 ) {
 	// 1. write bins intervals
-	std::string interval_name = output_path + "/interval.bed";
-	std::ofstream ofs_interval(interval_name);
+	std::string interval_path = output_path + INTERVAL_NAME;
+	std::ofstream ofs_interval(interval_path);
 	if (!ofs_interval.is_open()) {
-		std::cerr << "Failed to open interval output file: " << interval_name << "\n";
+		std::cerr << "Failed to open interval output file: " << interval_path << "\n";
 		exit(1);
 	}
 
@@ -22,13 +21,13 @@ void write_Bedfile_interval(
 		}
 	}
 	ofs_interval.close();
-	verbose_log("Successfully write intervals to " + interval_name);
+	verbose_log("Successfully write intervals to " + interval_path);
 
 	// 2. write discard intervals
-	std::string discard_name = output_path + "/discard.bed";
-	std::ofstream ofs_discard(discard_name);
+	std::string discard_path = output_path + DISCARD_NAME;
+	std::ofstream ofs_discard(discard_path);
 	if (!ofs_discard.is_open()) {
-		std::cerr << "Failed to open discard output file: " << discard_name << "\n";
+		std::cerr << "Failed to open discard output file: " << discard_path << "\n";
 		exit(1);
 	}
 
@@ -39,22 +38,27 @@ void write_Bedfile_interval(
 		}
 	}
 	ofs_discard.close();
-	verbose_log("Successfully write intervals to " + discard_name);
+	verbose_log("Successfully write intervals to " + discard_path);
 }
 
 void Binning_with_unique_kmer(
-	const std::string& output_path, 
-	KmerResult& kmer_result, 
-	size_t unique_number
-){
+	Options& option,
+	KmerResult& kmer_result
+) {
+	std::string output_path(option.output_path);
+	size_t unique_number{option.bin_size};
+	size_t num_threads{option.num_threads};
+
 	std::vector<std::vector<Intv>> bins_intvs;
 	std::vector<std::vector<Intv>> discard_intvs;
 	auto& [chr_data, non_unique] = kmer_result;
-	bins_intvs.reserve(chr_data.size());
+	bins_intvs.resize(chr_data.size());
+	discard_intvs.resize(chr_data.size());
 
-	for (auto& chr : chr_data) {
-		size_t start{chr.total_len};
-		size_t end{start + chr.len};
+	#pragma omp parallel for schedule(dynamic, 1) num_threads(num_threads)
+	for (int i=0; i<chr_data.size(); ++i) {
+		size_t start{chr_data[i].total_len};
+		size_t end{start + chr_data[i].len};
 		size_t count = 0;
 		std::vector<Intv> temp1_intervals;
 		std::vector<Intv> temp2_intervals;
@@ -75,8 +79,8 @@ void Binning_with_unique_kmer(
 				count = 0;
 			}
 		}
-		bins_intvs.emplace_back(temp1_intervals);
-		discard_intvs.emplace_back(temp2_intervals);
+		bins_intvs[i] = temp1_intervals;
+		discard_intvs[i] = temp2_intervals;
 	}
 	write_Bedfile_interval(output_path, chr_data, bins_intvs, discard_intvs);
 }

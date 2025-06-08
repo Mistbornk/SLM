@@ -8,7 +8,7 @@ void BAM_INFO::bam_file_init()
 	bam_file = sam_open(file_path.c_str(), "r");
     if (!bam_file) {
         std::cerr << "Can not open bam file\n";
-        std::exit(-1);
+        std::exit(1);
     }
 
 	// read header
@@ -16,7 +16,7 @@ void BAM_INFO::bam_file_init()
     if (!header) {
         std::cerr << "Can not read header\n";
         sam_close(bam_file);
-        std::exit(-1);
+        std::exit(1);
     }
 
 	// load index
@@ -25,7 +25,7 @@ void BAM_INFO::bam_file_init()
         std::cerr << "Can't find BAM index (use samtools to construct .bai)\n";
         bam_hdr_destroy(header);
         sam_close(bam_file);
-        std::exit(-1);
+        std::exit(1);
     }
 }
 

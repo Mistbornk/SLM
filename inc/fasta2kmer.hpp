@@ -2,7 +2,7 @@
 #include <biovoltron/algo/align/tailor/index.hpp>
 #include <biovoltron/utility/istring.hpp>
 
-#include "verbose.hpp"
+#include "context.hpp"
 
 #include <htslib/faidx.h>
 #include <algorithm>
@@ -27,7 +27,7 @@ struct chr_info {
 };
 using KmerResult = std::tuple<std::vector<chr_info>, std::vector<uint8_t>>;
 
-KmerResult count_unique_kmers(const std::string& fasta_path, const std::string& index_path, int kmer_size, const std::string& output_path, int num_threads = 8);
+KmerResult count_unique_kmers(Options& option);
 
 
 
