@@ -3,7 +3,6 @@
 
 #include "slmseg.hpp"
 #include "bam2count.hpp"
-#include "bam_utils.hpp"
 #include "fasta2kmer.hpp"
 #include "binning.hpp"
 #include "context.hpp"
@@ -88,11 +87,16 @@ Options parse_args(int argc, char* argv[])
 int main(int argc, char* argv[]) {
     Options option = parse_args(argc, argv);
 
-    auto kmer_result = count_unique_kmers(option);
-
-    Binning_with_unique_kmer(option, kmer_result);
-
-    
+    if (!fs::exists(option.output_path + INTERVAL_NAME)) {
+        auto kmer_result = count_unique_kmers(option);
+        auto [bins_intv, discard_intv] = Binning_with_unique_kmer(option, kmer_result);
+        count_reads_in_bam(option, bins_intv, kmer_result);
+    }
+    else {
+        auto kmer_result = count_unique_kmers(option);
+        auto bins_intv = load_Bedfile_interval(option.output_path);
+        count_reads_in_bam(option, bins_intv, kmer_result);
+    }
 
     return 0;
 }

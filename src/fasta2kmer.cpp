@@ -1,4 +1,5 @@
 #include "fasta2kmer.hpp"
+#include "context.hpp"
 
 void make_FMindex(
     const std::string& file_path, 
@@ -19,14 +20,14 @@ void make_FMindex(
 }
 
 
-KmerResult count_unique_kmers(Options& option) 
+KmerResult count_unique_kmers(const Options& option) 
 {
-    std::string fasta_path(option.fasta_path);
-    std::string output_path(option.output_path);
-    size_t  kmer_size{option.kmer};
-    size_t  num_threads{option.num_threads};
+    const std::string fasta_path(option.fasta_path);
+    const std::string output_path(option.output_path);
+    const size_t  kmer_size{option.kmer};
+    const size_t  num_threads{option.num_threads};
 
-    std::vector<chr_info> chr_data;
+    std::vector<CHR_INFO> chr_data;
     std::vector<uint8_t> non_unique; 
     istring concat_iref;
 
@@ -83,10 +84,14 @@ KmerResult count_unique_kmers(Options& option)
         char* seq = faidx_fetch_seq64(local_fai, chr_name.c_str(), 0, chr_len - 1, &len);
         if (!seq) {
             std::cerr << "Error: failed to fetch sequence for " << chr_name << "\n";
+            free(seq);
+            fai_destroy(local_fai);
             continue;
         }else if (len != chr_len) {
             std::cerr << "Warning: fetched length mismatch for " << chr_name 
               << " (expected " << chr_len << ", got " << len << ")\n";
+            free(seq);
+            fai_destroy(local_fai);
             continue;
         }  
 
@@ -117,7 +122,7 @@ KmerResult count_unique_kmers(Options& option)
 
     // make and save FM index
     if (!fs::exists(output_path + INDEX_NAME)) {
-       verbose_log("Need to construct FM index at " + output_path + " first ...");
+        verbose_log("Need to construct FM index at " + output_path + " first ...");
         make_FMindex(output_path + INDEX_NAME, concat_iref);
     }
 

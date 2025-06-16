@@ -18,16 +18,15 @@
 
 using namespace biovoltron;
 using istring = std::basic_string<ichar>;
-namespace fs = std::filesystem;
 
-struct chr_info {
+struct CHR_INFO {
 	std::string name;
 	size_t len;
 	size_t total_len;
 };
-using KmerResult = std::tuple<std::vector<chr_info>, std::vector<uint8_t>>;
+using KmerResult = std::tuple<std::vector<CHR_INFO>, std::vector<uint8_t>>;
 
-KmerResult count_unique_kmers(Options& option);
+KmerResult count_unique_kmers(const Options& option);
 
 
 

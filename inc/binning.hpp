@@ -9,6 +9,7 @@
 #include <htslib/faidx.h>
 #include <algorithm>
 #include <vector>
+#include <tuple>
 #include <unordered_map>
 #include <string_view>
 #include <fstream>
@@ -20,12 +21,16 @@
 
 using namespace biovoltron;
 using istring = std::basic_string<ichar>;
-using KmerResult = std::tuple<std::vector<chr_info>, std::vector<uint8_t>>;
 
 struct Intv {
+    std::string name;
 	// [start, end)
     size_t start;
     size_t end;
+    double count = 0;
+    double gc_percent;
 };
+using BinningResult = std::tuple<std::vector<Intv>, std::vector<Intv>>;
 
-void Binning_with_unique_kmer(Options& option, KmerResult& kmer_result);
+BinningResult Binning_with_unique_kmer(const Options& option, const KmerResult& kmer_result);
+std::vector<Intv> load_Bedfile_interval(const std::string& file_path);
