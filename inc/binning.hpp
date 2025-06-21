@@ -28,7 +28,7 @@ struct Intv {
     size_t start;
     size_t end;
     double count = 0;
-    double gc_percent;
+    //double gc_percent;
 };
 using BinningResult = std::tuple<std::vector<Intv>, std::vector<Intv>>;
 

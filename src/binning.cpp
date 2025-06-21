@@ -14,8 +14,6 @@ std::vector<Intv> load_Bedfile_interval(
     std::vector<Intv> bins_intvs;
     std::string line;
 
-    bool first_line = true;
-
     while (std::getline(ifs, line)) {
         std::istringstream iss(line);
         std::string name;
@@ -130,7 +128,7 @@ BinningResult Binning_with_unique_kmer(
 	}
 
 	verbose_log("Binning Success.");
-	write_Bedfile_interval(output_path, bins_intvs_flat, discard_intvs_flat);
+	// write_Bedfile_interval(output_path, bins_intvs_flat, discard_intvs_flat);
 
 	return std::make_tuple(bins_intvs_flat, discard_intvs_flat);
 }

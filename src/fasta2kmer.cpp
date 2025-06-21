@@ -5,18 +5,18 @@ void make_FMindex(
     const std::string& file_path, 
     const istring& concat_iref
 ) {   
-    verbose_log("  -Making FM index ...");
+    verbose_log("  - Making FM index ...");
 
     auto index = FMIndex<>{}; 
     index.build(concat_iref);
-    verbose_log("  -Index construct success");
+    verbose_log("  - Index construct success");
 
     std::string out_path = file_path;
     std::ofstream out(out_path, std::ios::binary); 
     index.save(out);
     out.close();
 
-    verbose_log("  -Save success");
+    verbose_log("  - Save success");
 }
 
 
@@ -121,7 +121,7 @@ KmerResult count_unique_kmers(const Options& option)
     }
 
     // make and save FM index
-    if (!fs::exists(output_path + INDEX_NAME)) {
+    if (!std::filesystem::exists(output_path + INDEX_NAME)) {
         verbose_log("Need to construct FM index at " + output_path + " first ...");
         make_FMindex(output_path + INDEX_NAME, concat_iref);
     }

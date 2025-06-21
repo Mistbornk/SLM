@@ -86,17 +86,14 @@ Options parse_args(int argc, char* argv[])
 
 int main(int argc, char* argv[]) {
     Options option = parse_args(argc, argv);
+    Sex sample_sex = Sex::Male;
+    ReferenceGenome sample_ref = ReferenceGenome::GRCh37;
 
-    if (!fs::exists(option.output_path + INTERVAL_NAME)) {
-        auto kmer_result = count_unique_kmers(option);
-        auto [bins_intv, discard_intv] = Binning_with_unique_kmer(option, kmer_result);
-        count_reads_in_bam(option, bins_intv, kmer_result);
-    }
-    else {
-        auto kmer_result = count_unique_kmers(option);
-        auto bins_intv = load_Bedfile_interval(option.output_path);
-        count_reads_in_bam(option, bins_intv, kmer_result);
-    }
+    auto kmer_result = count_unique_kmers(option);
+    auto [bins_intv, discard_intv] = Binning_with_unique_kmer(option, kmer_result);
+    auto bins_per_chr = count_reads_in_bam(option, bins_intv, kmer_result, sample_sex, sample_ref);
+
+    calSLM(option.output_path + LOG2RATIO_NAME, option.num_threads);
 
     return 0;
 }

@@ -11,12 +11,21 @@
 #include <array>
 #include <algorithm> 
 #include <unordered_set>
+#include <iomanip>
+#include <omp.h>
+#include "context.hpp"
+
+struct Bin_Region {
+    unsigned int start, len;
+};
+
+void calSLM(std::string input_path, size_t num_threads);
 
 // TFloat is a floating point value - float or double
 template<class TFloat>
 class SLMSeg {
 public:
-    SLMSeg(TFloat omega = 0.1, TFloat eta = 0.0001, unsigned int stepeta = 1000000, unsigned int fw = 1, unsigned int mw = 1)
+    SLMSeg(TFloat omega = 0.3, TFloat eta = 4e-5, unsigned int stepeta = 10000, unsigned int fw = 0, unsigned int mw = 1)
     : omega_(omega), eta_(eta), stepeta_(stepeta), fw_(fw), mw_(mw) { }
     ~SLMSeg() { };
 
@@ -96,12 +105,12 @@ public:
     std::vector<std::vector<TFloat>> muk(){ return muk_; }
     std::vector<unsigned int> total_pred_break(){ return total_pred_break_;}
     std::vector<unsigned int> total_pred_break_filtered(){ return total_pred_break_filtered_; }
-    std::vector<unsigned int> pos_data(){ return pos_data_; }
+    std::vector<Bin_Region> pos_data(){ return pos_data_; }
     std::vector<std::vector<TFloat>> data_seg(){ return data_seg_; }
 
 private:
     std::vector<TFloat> signal_data_;
-    std::vector<unsigned int> pos_data_;
+    std::vector<Bin_Region> pos_data_;
     std::vector<std::vector<TFloat>> data_matrix;
 
     std::vector<TFloat> mi_;
@@ -155,16 +164,20 @@ bool SLMSeg<TFloat>::load_signal_file(const std::string& file_name, const std::s
     std::string line;
     while (std::getline(infile, line)) {
         std::istringstream ss(line);
-        std::string col0, col1, col2;
+        std::string col0, col1, col2, col3;
         if (!std::getline(ss, col0, '\t')) continue;
         if (!std::getline(ss, col1, '\t')) continue;
         if (!std::getline(ss, col2, '\t')) continue;
+        if (!std::getline(ss, col3, '\t')) continue;
 
         try {
             std::string chr  = col0;
             if (chr == chromosome) {
-                pos_data_.push_back(static_cast<unsigned int>(std::stoul(col1)));
-                signal_data_.push_back(static_cast<TFloat>(std::stod(col2)));
+                unsigned int start = static_cast<unsigned int>(std::stoul(col1));
+                unsigned int end   = static_cast<unsigned int>(std::stoul(col2));
+                unsigned int len   = end - start;
+                pos_data_.push_back({start, len});
+                signal_data_.push_back(static_cast<TFloat>(std::stod(col3)));
             }
         } catch (...) {
             std::cerr << "Unexpected error " << "\n";
@@ -534,13 +547,11 @@ void SLMSeg<TFloat>::joint_seg()
 
     // Step 2: 執行 transemisi（同質版本）
     transemisi_SLM(eta_, K0, NExp, T, G, P, Emission);
-    std::cerr << "-Transemisi (homogeneous) Completed\n";
 
     // Step 3: Viterbi 路徑與 psi 表
     std::vector<unsigned int> path(T, 0);
     std::vector<std::vector<unsigned int>> psi(T, std::vector<unsigned int>(K0, 0));
     bioviterbii_SLM(etav, P, Emission, T, K0, path, psi);
-    std::cerr << "-bioviterbi Completed\n";
 
     // Step 4: 取得斷點位置
     total_pred_break_.clear();
@@ -555,7 +566,7 @@ void SLMSeg<TFloat>::joint_seg_in()
     // Pr = etavec = eta + (1 - eta) * exp(log(eta) / CovPosNorm) 
     std::vector<TFloat> etavec(pos_data_.size() - 1);
     for (size_t i = 0; i < etavec.size(); ++i) {
-       TFloat cov_pos = static_cast<TFloat>(pos_data_[i + 1]) - static_cast<TFloat>(pos_data_[i]);
+       TFloat cov_pos = static_cast<TFloat>(pos_data_[i + 1].start) - static_cast<TFloat>(pos_data_[i].start + pos_data_[i].len);
        TFloat cov_pos_norm = cov_pos / stepeta_;
        etavec[i] = eta_ + (1.0 - eta_) * std::exp(std::log(eta_) / cov_pos_norm);
     }
@@ -579,14 +590,14 @@ void SLMSeg<TFloat>::joint_seg_in()
     std::vector<std::vector<TFloat>> Emission(T, std::vector<TFloat>(K0, 0.0));
     // do 
     transemisi_HSLM(etavec, NCov, K0, NExp, T, G, P, Emission);
-    std::cerr << "-Transemisi Completed \n";
+    //std::cerr << "  -Transemisi Completed \n";
 
     // initialize matrix
     std::vector<unsigned int> path(T, 0);
     std::vector<std::vector<unsigned int>> psi(T, std::vector<unsigned int>(K0, 0));
     // do 
     bioviterbii_HSLM(etav, P, Emission, T, K0, path, psi);
-    std::cerr << "-bioviterbii Completed \n";
+    //std::cerr << "  -Bioviterbii Completed \n";
 
     total_pred_break_.clear();
     total_pred_break_ = get_breaks(path);
@@ -651,40 +662,30 @@ void SLMSeg<TFloat>::seg_results()
 
 template<class TFloat>
 void SLMSeg<TFloat>::HSLM() 
-{
-    std::cout << "Parameter estimation...\n";
+{   
     param_est_seq();
 
-    std::cout << "Muk estimation...\n";
     muk_est();
 
-    std::cout << "Joint segmentation...\n";
     joint_seg_in();
 
-    std::cout << "Filtering predictions...\n";
     filter_seg();
     //write_breakpoints_to_file("file2.txt");
 
-    std::cout << "Producing results...\n";
     seg_results();
 }
 
 template<class TFloat>
 void SLMSeg<TFloat>::SLM() 
 {
-    std::cout << "Parameter estimation...\n";
     param_est_seq();
 
-    std::cout << "Muk estimation...\n";
     muk_est();
 
-    std::cout << "Joint segmentation...\n";
     joint_seg();
 
-    std::cout << "Filtering predictions...\n";
     filter_seg();
     //write_breakpoints_to_file("file2.txt");
 
-    std::cout << "Producing results...\n";
     seg_results();
 }

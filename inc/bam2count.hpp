@@ -32,5 +32,11 @@ struct BAM_INFO {
 	const std::string file_path;
 };
 
-void count_reads_in_bam(const Options& option, std::vector<Intv>& bins_intvs, const KmerResult& kemr_result);
+std::vector<std::vector<Intv>> count_reads_in_bam(
+	const Options& option, 
+	std::vector<Intv>& bins_intvs, 
+	const KmerResult& kemr_result,
+    Sex sample_sex,
+    ReferenceGenome sample_ref
+);
 
