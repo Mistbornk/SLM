@@ -19,14 +19,39 @@ struct Bin_Region {
     unsigned int start, len;
 };
 
+struct Break_Region {
+    unsigned int start, end;
+    bool isPAR;
+};
+
 void calSLM(std::string input_path, size_t num_threads);
 
 // TFloat is a floating point value - float or double
 template<class TFloat>
 class SLMSeg {
 public:
-    SLMSeg(TFloat omega = 0.3, TFloat eta = 4e-5, unsigned int stepeta = 10000, unsigned int fw = 0, unsigned int mw = 1)
-    : omega_(omega), eta_(eta), stepeta_(stepeta), fw_(fw), mw_(mw) { }
+    SLMSeg(
+        TFloat            omega        = 0.3,
+        TFloat            eta          = 4e-5,
+        unsigned int      stepeta      = 10000,
+        unsigned int      fw           = 0,
+        unsigned int      mw           = 1,
+        ReferenceGenome   sample_ref   = ReferenceGenome::GRCh37,
+        size_t            max_gap      = 2000,
+        size_t            min_gap      = 1000,
+        size_t            min_bins     = 2
+    )
+    : omega_(       omega       )
+    , eta_(         eta         )
+    , stepeta_(     stepeta     )
+    , fw_(          fw          )
+    , mw_(          mw          )
+    , sample_ref_(  sample_ref  )
+    , MAX_GAP_(     max_gap     )
+    , MIN_GAP_(     min_gap     )
+    , MIN_BINS_(    min_bins    )
+    {}
+
     ~SLMSeg() { };
 
     bool load_signal_file(const std::string& filename, const std::string& chromosome);
@@ -79,6 +104,8 @@ public:
         std::cout << "Breakpoints written to " << filename << "\n";
     }
 
+    void seperate_par( const std::string& chr, unsigned int start, unsigned int end, ReferenceGenome ref, std::vector<Break_Region>& raw_segments);
+
     static inline constexpr std::array<TFloat, 11> BIN_VEC = {
         TFloat(-1.0), TFloat(-0.8), TFloat(-0.6), TFloat(-0.4), TFloat(-0.2),
         TFloat(0.0),
@@ -109,6 +136,12 @@ public:
     std::vector<std::vector<TFloat>> data_seg(){ return data_seg_; }
 
 private:
+    std::string chr_name_;
+    ReferenceGenome sample_ref_;
+    size_t MAX_GAP_;
+    size_t MIN_GAP_;
+    size_t MIN_BINS_;
+
     std::vector<TFloat> signal_data_;
     std::vector<Bin_Region> pos_data_;
     std::vector<std::vector<TFloat>> data_matrix;
@@ -127,6 +160,71 @@ private:
     std::vector<std::vector<TFloat>> muk_;
     std::vector<std::vector<TFloat>> data_seg_; 
 };
+
+template<class TFloat>
+void SLMSeg<TFloat>::seperate_par(
+    const std::string& chr, 
+    unsigned int start_bin, 
+    unsigned int end_bin, 
+    ReferenceGenome ref,
+    std::vector<Break_Region>& raw_segments
+) {
+    if (!(chr == "X" || chr == "chrX")) {
+        raw_segments.emplace_back(start_bin, end_bin, false);
+        return;
+    }
+
+    auto it_genome = PAR_REGIONS.find(ref);
+    if (it_genome == PAR_REGIONS.end()) {
+        raw_segments.emplace_back(start_bin, end_bin, false);
+        return;
+    }
+
+    auto it_chr = it_genome->second.find(chr);
+    const auto& par_intervals = it_chr->second;
+    // curr_start_bin 指向還沒切出的區段起點
+    unsigned int curr_start = start_bin;
+
+    for (auto [par_start, par_end] : par_intervals) {
+        // first bin when end coordinate > par_start
+        auto it_split1 = std::upper_bound(
+            pos_data_.begin() + curr_start, 
+            pos_data_.begin() + end_bin,
+            par_start,
+            [](unsigned int genome_pos, const Bin_Region& b){
+                return genome_pos < b.start + b.len;
+            });
+        unsigned int split1 = std::distance(pos_data_.begin(), it_split1);
+
+        if (split1 > curr_start && split1 <= end_bin) {
+            // [curr_start, split1) Before PAR
+            raw_segments.emplace_back(curr_start, split1, false);
+            curr_start = split1;
+        }
+
+        // first bin when start coordinate >= par_end
+        auto it_split2 = std::lower_bound(
+            pos_data_.begin() + curr_start, 
+            pos_data_.begin() + end_bin + 1,
+            par_end,
+            [](const Bin_Region& b, unsigned int genome_pos){
+                return b.start < genome_pos;
+            });
+        unsigned int split2 = std::distance(pos_data_.begin(), it_split2);
+
+        if (split2 > curr_start && split2 <= end_bin) {
+            // [curr_start, split2) in PAR
+            raw_segments.emplace_back(curr_start, split2, true);
+            curr_start = split2;
+        }
+    }
+
+    // [curr_start, end_bin] after PAR
+    if (curr_start < end_bin) {
+        raw_segments.emplace_back(curr_start, end_bin, false);
+    }
+}
+
 
 template<class TFloat>
 std::vector<unsigned int> SLMSeg<TFloat>::get_breaks(std::vector<unsigned int>& path) {
@@ -155,6 +253,8 @@ std::vector<unsigned int> SLMSeg<TFloat>::get_breaks(std::vector<unsigned int>& 
 template<class TFloat>
 bool SLMSeg<TFloat>::load_signal_file(const std::string& file_name, const std::string& chromosome) 
 {
+    chr_name_ = chromosome;
+
     std::ifstream infile(file_name);
     if (!infile.is_open()) {
         std::cerr << "Unable to open file: " << file_name << "\n";
@@ -645,17 +745,83 @@ void SLMSeg<TFloat>::seg_results()
 
     for (size_t j = 0; j < NExp; ++j) {
         std::vector<TFloat> s(T, 0.0);
+        std::vector<Break_Region> raw_segments;
+        std::vector<Break_Region> refined_segments;
+
+        // seperate cross PAR seg and large gap seg
         for (size_t i = 0; i + 1 < total_pred_break_filtered_.size(); ++i) {
             unsigned int start = total_pred_break_filtered_[i];
             unsigned int end = total_pred_break_filtered_[i + 1];
 
+            // seperated large gap seg
+            std::vector<Break_Region> gap_segs;
+            unsigned int curr = start;
+            for (unsigned k = start; k + 1 < end; ++k) {
+                unsigned int this_end = pos_data_[k].start + pos_data_[k].len;
+                unsigned int next_start = pos_data_[k+1].start;
+                if (next_start - this_end > MAX_GAP_) {
+                    // gap too large [curr, k+1)
+                    gap_segs.emplace_back(curr, k+1, false);
+                    curr = k+1;
+                }
+            }
+            if (curr < end) {
+                gap_segs.emplace_back(curr, end, false);
+            }
+
+            for (auto& seg : gap_segs) {
+                seperate_par(chr_name_, seg.start, seg.end, sample_ref_, raw_segments);
+                //raw_segments.emplace_back(seg);
+            }
+        }
+
+        // merged seg
+        for (auto& seg : raw_segments) {
+            if (refined_segments.empty()) {
+                refined_segments.emplace_back(seg);
+            } else {
+                auto& last = refined_segments.back();
+                // cal distance of two seg
+                unsigned int last_end_pos = pos_data_[last.end-1].start + pos_data_[last.end-1].len;
+                unsigned int curr_start_pos = pos_data_[seg.start].start;
+                size_t real_gap = (curr_start_pos > last_end_pos)
+                                 ? curr_start_pos - last_end_pos
+                                 : 0;
+                // bin numbers
+                size_t curr_bins = seg.end - seg.start;
+
+                if ( last.isPAR == seg.isPAR
+                  && real_gap < MIN_GAP_
+                  && curr_bins < MIN_BINS_ ) {
+                    // merged
+                    # if 0
+                    std::cout << "[Merge] last=["  << last.start << "," << last.end << ")"
+                            << "  seg=["    << seg.start << "," << seg.end << ")"
+                            << "  bins="   << curr_bins
+                            << "  gap="    << real_gap
+                            << "  isPAR="  << seg.isPAR
+                            << "\n";
+                    # endif
+                    last.end = seg.end;
+                } else {
+                    // not merged
+                    refined_segments.push_back(seg);
+                }
+            }
+        }
+
+        for (auto& seg : refined_segments) {
+            unsigned int start = seg.start;
+            unsigned int end = seg.end;
             std::vector<TFloat> segment(data_matrix[j].begin() + start, data_matrix[j].begin() + end);
+
             std::nth_element(segment.begin(), segment.begin() + segment.size() / 2, segment.end());
             TFloat median = segment[segment.size() / 2];
 
             for (size_t t = start; t < end; ++t)
                 s[t] = median;
         }
+
         data_seg_.push_back(std::move(s));
     }
 }
